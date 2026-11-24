@@ -1,6 +1,6 @@
 
 from rest_framework import viewsets
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 
 from .models import Role, PersonRole, Credential, AccessRecord
@@ -19,11 +19,12 @@ from infrastructure.models import AccessPoint
 from .services import evaluate_and_register_access
 from .serializers import AccessRequestSerializer
 from .pagination import AccessRecordPagination
+from rest_framework.permissions import AllowAny
 
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
 
 class PersonRoleViewSet(viewsets.ModelViewSet):
@@ -34,13 +35,12 @@ class PersonRoleViewSet(viewsets.ModelViewSet):
         "dwelling",
     ).all()
     serializer_class = PersonRoleSerializer
-    permission_classes = [AllowAny]
-
+    permission_classes = [IsAuthenticated]
 
 class CredentialViewSet(viewsets.ModelViewSet):
     queryset = Credential.objects.select_related("person").all()
     serializer_class = CredentialSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
 
 
@@ -53,7 +53,7 @@ class AccessRecordViewSet(viewsets.ModelViewSet):
     ).all()
 
     serializer_class = AccessRecordSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = AccessRecordPagination
 
     # El historial no puede modificarse ni eliminarse mediante la API.
@@ -119,10 +119,9 @@ class AccessRecordViewSet(viewsets.ModelViewSet):
             uid_received = credential.uid_rfid
 
         serializer.save(uid_received=uid_received)
-
-
+        
 class CheckAccessView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = AccessRequestSerializer(data=request.data)
