@@ -27,11 +27,9 @@ class RoleSerializer(serializers.ModelSerializer):
         ]
 
 
+
 class PersonRoleSerializer(serializers.ModelSerializer):
-    person_name = serializers.CharField(
-        source="person.__str__",
-        read_only=True,
-    )
+    person_name = serializers.SerializerMethodField()
     role_name = serializers.CharField(
         source="role.name",
         read_only=True,
@@ -40,10 +38,7 @@ class PersonRoleSerializer(serializers.ModelSerializer):
         source="terrain.name",
         read_only=True,
     )
-    dwelling_name = serializers.CharField(
-        source="dwelling.__str__",
-        read_only=True,
-    )
+    dwelling_name = serializers.SerializerMethodField()
 
     class Meta:
         model = PersonRole
@@ -62,49 +57,46 @@ class PersonRoleSerializer(serializers.ModelSerializer):
             "dwelling_name",
         ]
 
+    def get_person_name(self, obj):
+        return str(obj.person) if obj.person_id else None
+
+    def get_dwelling_name(self, obj):
+        return str(obj.dwelling) if obj.dwelling_id else None
+
     def validate(self, attrs):
         instance = self.instance
 
-        role = attrs.get(
-            "role",
-            instance.role if instance else None,
-        )
-        terrain = attrs.get(
-            "terrain",
-            instance.terrain if instance else None,
-        )
-        dwelling = attrs.get(
-            "dwelling",
-            instance.dwelling if instance else None,
-        )
-        start_date = attrs.get(
-            "start_date",
-            instance.start_date if instance else None,
-        )
-        end_date = attrs.get(
-            "end_date",
-            instance.end_date if instance else None,
-        )
+        role = attrs.get("role", instance.role if instance else None)
+        terrain = attrs.get("terrain", instance.terrain if instance else None)
+        dwelling = attrs.get("dwelling", instance.dwelling if instance else None)
+        start_date = attrs.get("start_date", instance.start_date if instance else None)
+        end_date = attrs.get("end_date", instance.end_date if instance else None)
 
         if role:
             if role.scope == Role.Scope.TERRAIN:
                 if not terrain or dwelling:
                     raise serializers.ValidationError({
-                        "terrain": "El rol de terreno requiere un terreno y no admite una vivienda."
+                        "terrain": (
+                            "El rol de terreno requiere un terreno "
+                            "y no admite una vivienda."
+                        )
                     })
 
             elif role.scope == Role.Scope.DWELLING:
                 if not dwelling or terrain:
                     raise serializers.ValidationError({
-                        "dwelling": "El rol de vivienda requiere una vivienda y no admite un terreno."
+                        "dwelling": (
+                            "El rol de vivienda requiere una vivienda "
+                            "y no admite un terreno."
+                        )
                     })
-
-                if terrain is None and dwelling:
-                    pass
 
         if start_date and end_date and end_date < start_date:
             raise serializers.ValidationError({
-                "end_date": "La fecha de término no puede ser anterior a la fecha de inicio."
+                "end_date": (
+                    "La fecha de término no puede ser anterior "
+                    "a la fecha de inicio."
+                )
             })
 
         return attrs
@@ -123,12 +115,8 @@ class PersonRoleSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-
 class CredentialSerializer(serializers.ModelSerializer):
-    person_name = serializers.CharField(
-        source="person.__str__",
-        read_only=True,
-    )
+    person_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(
         source="get_status_display",
         read_only=True,
@@ -144,6 +132,9 @@ class CredentialSerializer(serializers.ModelSerializer):
             "person",
             "person_name",
         ]
+
+    def get_person_name(self, obj):
+        return str(obj.person) if obj.person_id else None
 
 
 class AccessRecordSerializer(serializers.ModelSerializer):
