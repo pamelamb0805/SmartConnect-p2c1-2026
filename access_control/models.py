@@ -118,17 +118,11 @@ class PersonRole(models.Model):
         verbose_name = "Asignación de rol"
         verbose_name_plural = "Asignaciones de roles"
         ordering = ["-start_date"]
-        constraints = [
-            models.CheckConstraint(
-                condition=(
-                    Q(role__scope="TERRENO", terrain__isnull=False,
-                      dwelling__isnull=True)
-                    | Q(role__scope="VIVIENDA", dwelling__isnull=False,
-                        terrain__isnull=True)
-                ),
-                name="ck_persona_rol_ambito",
-            ),
-        ]
+        class Meta:
+            db_table = "persona_rol"
+            verbose_name = "Asignación de rol"
+            verbose_name_plural = "Asignaciones de roles"
+            ordering = ["-start_date"]
 
     def clean(self):
         errors = {}
