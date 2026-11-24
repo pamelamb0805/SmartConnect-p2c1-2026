@@ -45,7 +45,7 @@ class Vivienda(models.Model):
     def __str__(self):
         return f"{self.tipo} {self.n_identificador}"
 
-
+#app
 class PuntoAcceso(models.Model):
     id_punto_acceso = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=100)
