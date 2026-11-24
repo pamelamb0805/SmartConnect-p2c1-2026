@@ -18,6 +18,7 @@ from rest_framework import status
 from infrastructure.models import AccessPoint
 from .services import evaluate_and_register_access
 from .serializers import AccessRequestSerializer
+from .pagination import AccessRecordPagination
 
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Role.objects.all()
@@ -53,6 +54,7 @@ class AccessRecordViewSet(viewsets.ModelViewSet):
 
     serializer_class = AccessRecordSerializer
     permission_classes = [AllowAny]
+    pagination_class = AccessRecordPagination
 
     # El historial no puede modificarse ni eliminarse mediante la API.
     http_method_names = ["get", "post", "head", "options"]
