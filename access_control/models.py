@@ -118,11 +118,6 @@ class PersonRole(models.Model):
         verbose_name = "Asignación de rol"
         verbose_name_plural = "Asignaciones de roles"
         ordering = ["-start_date"]
-        class Meta:
-            db_table = "persona_rol"
-            verbose_name = "Asignación de rol"
-            verbose_name_plural = "Asignaciones de roles"
-            ordering = ["-start_date"]
 
     def clean(self):
         errors = {}
