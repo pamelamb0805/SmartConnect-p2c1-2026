@@ -227,3 +227,54 @@ class AccessRequestSerializer(serializers.Serializer):
             ("OTRO", "Otro"),
         ],
     )
+
+
+class AccessRecordFilterSerializer(serializers.Serializer):
+    person = serializers.IntegerField(
+        required=False,
+        min_value=1,
+    )
+
+    terrain = serializers.IntegerField(
+        required=False,
+        min_value=1,
+    )
+
+    access_point = serializers.IntegerField(
+        required=False,
+        min_value=1,
+    )
+
+    result = serializers.ChoiceField(
+        required=False,
+        choices=AccessRecord.Result.choices,
+    )
+
+    medium = serializers.ChoiceField(
+        required=False,
+        choices=AccessRecord.Medium.choices,
+    )
+
+    date_from = serializers.DateField(
+        required=False,
+        input_formats=["%Y-%m-%d"],
+    )
+
+    date_to = serializers.DateField(
+        required=False,
+        input_formats=["%Y-%m-%d"],
+    )
+
+    def validate(self, attrs):
+        date_from = attrs.get("date_from")
+        date_to = attrs.get("date_to")
+
+        if date_from and date_to and date_from > date_to:
+            raise serializers.ValidationError({
+                "date_to": (
+                    "La fecha final no puede ser anterior "
+                    "a la fecha inicial."
+                )
+            })
+
+        return attrs

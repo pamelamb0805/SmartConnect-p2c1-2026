@@ -42,59 +42,76 @@ class CredentialViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
 
+
 class AccessRecordViewSet(viewsets.ModelViewSet):
     queryset = AccessRecord.objects.select_related(
         "access_point",
+        "access_point__terrain",
         "credential",
         "credential__person",
     ).all()
+
     serializer_class = AccessRecordSerializer
     permission_classes = [AllowAny]
+
+    # El historial no puede modificarse ni eliminarse mediante la API.
     http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
+        from .serializers import AccessRecordFilterSerializer
+
         queryset = super().get_queryset()
 
-        person_id = self.request.query_params.get("person")
-        terrain_id = self.request.query_params.get("terrain")
-        access_point_id = self.request.query_params.get("access_point")
-        result = self.request.query_params.get("result")
-        medium = self.request.query_params.get("medium")
-        date_from = self.request.query_params.get("date_from")
-        date_to = self.request.query_params.get("date_to")
+        filter_serializer = AccessRecordFilterSerializer(
+            data=self.request.query_params
+        )
+        filter_serializer.is_valid(raise_exception=True)
 
-        if person_id:
+        filters = filter_serializer.validated_data
+
+        if "person" in filters:
             queryset = queryset.filter(
-                credential__person_id=person_id
+                credential__person_id=filters["person"]
             )
 
-        if terrain_id:
+        if "terrain" in filters:
             queryset = queryset.filter(
-                access_point__terrain_id=terrain_id
+                access_point__terrain_id=filters["terrain"]
             )
 
-        if access_point_id:
+        if "access_point" in filters:
             queryset = queryset.filter(
-                access_point_id=access_point_id
+                access_point_id=filters["access_point"]
             )
 
-        if result:
-            queryset = queryset.filter(result=result)
+        if "result" in filters:
+            queryset = queryset.filter(
+                result=filters["result"]
+            )
 
-        if medium:
-            queryset = queryset.filter(medium=medium)
+        if "medium" in filters:
+            queryset = queryset.filter(
+                medium=filters["medium"]
+            )
 
-        if date_from:
-            queryset = queryset.filter(date_time__date__gte=date_from)
+        if "date_from" in filters:
+            queryset = queryset.filter(
+                date_time__date__gte=filters["date_from"]
+            )
 
-        if date_to:
-            queryset = queryset.filter(date_time__date__lte=date_to)
+        if "date_to" in filters:
+            queryset = queryset.filter(
+                date_time__date__lte=filters["date_to"]
+            )
 
         return queryset
 
     def perform_create(self, serializer):
         credential = serializer.validated_data.get("credential")
-        uid_received = serializer.validated_data.get("uid_received", "")
+        uid_received = serializer.validated_data.get(
+            "uid_received",
+            "",
+        )
 
         if credential and not uid_received:
             uid_received = credential.uid_rfid
