@@ -1,7 +1,32 @@
+
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+
+
+def api_home(request):
+    return JsonResponse({
+        "proyecto": "SmartConnect API",
+        "mensaje": "API funcionando correctamente.",
+        "endpoints": {
+            "personas": "/api/personas/",
+            "terrenos": "/api/terrenos/",
+            "viviendas": "/api/viviendas/",
+            "puntos_acceso": "/api/puntos-acceso/",
+            "roles": "/api/access-control/roles/",
+            "asignaciones_roles": "/api/access-control/person-roles/",
+            "credenciales": "/api/access-control/credentials/",
+            "registros_acceso": "/api/access-control/access-records/",
+            "administracion": "/admin/",
+        },
+    })
+
 
 urlpatterns = [
+    # Inicio de la API
+    path("", api_home, name="api-home"),
+
+    # Administración Django
     path("admin/", admin.site.urls),
 
     # API de personas
@@ -9,4 +34,10 @@ urlpatterns = [
 
     # API de infraestructura
     path("api/", include("infrastructure.urls")),
+
+    # API de control de acceso
+    path(
+        "api/access-control/",
+        include("access_control.urls"),
+    ),
 ]

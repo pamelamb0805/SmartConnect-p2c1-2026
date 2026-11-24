@@ -11,6 +11,13 @@ from .serializers import (
     AccessRecordSerializer,
 )
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from infrastructure.models import AccessPoint
+from .services import evaluate_and_register_access
+from .serializers import AccessRequestSerializer
 
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Role.objects.all()
@@ -93,3 +100,59 @@ class AccessRecordViewSet(viewsets.ModelViewSet):
             uid_received = credential.uid_rfid
 
         serializer.save(uid_received=uid_received)
+
+
+class CheckAccessView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = AccessRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uid_rfid = serializer.validated_data["uid_rfid"]
+        access_point_id = serializer.validated_data["access_point_id"]
+        medium = serializer.validated_data["medium"]
+
+        access_point = (
+            AccessPoint.objects
+            .select_related("terrain")
+            .filter(pk=access_point_id)
+            .first()
+        )
+
+        if access_point is None:
+            return Response(
+                {
+                    "error": "El punto de acceso indicado no existe.",
+                    "access_point_id": access_point_id,
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        evaluation = evaluate_and_register_access(
+            uid_rfid=uid_rfid,
+            access_point=access_point,
+            medium=medium,
+        )
+
+        credential = evaluation["credential"]
+        record = evaluation["record"]
+
+        return Response(
+            {
+                "autorizado": evaluation["allowed"],
+                "resultado": evaluation["result"],
+                "mensaje": evaluation["description"],
+                "registro": record.id_access_record,
+                "fecha_hora": record.date_time,
+                "uid_recibido": record.uid_received,
+                "persona": (
+                    str(credential.person)
+                    if credential
+                    else None
+                ),
+                "punto_acceso": access_point.name,
+                "terreno": access_point.terrain.name,
+            },
+            status=status.HTTP_200_OK,
+        )

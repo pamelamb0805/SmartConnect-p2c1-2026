@@ -206,3 +206,24 @@ class AccessRecordSerializer(serializers.ModelSerializer):
                 })
 
         return attrs
+
+
+
+class AccessRequestSerializer(serializers.Serializer):
+    uid_rfid = serializers.CharField(
+        max_length=100,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+    access_point_id = serializers.IntegerField(
+        min_value=1,
+    )
+
+    medium = serializers.ChoiceField(
+        choices=[
+            ("RFID", "RFID"),
+            ("APP", "Aplicación"),
+            ("OTRO", "Otro"),
+        ],
+    )
