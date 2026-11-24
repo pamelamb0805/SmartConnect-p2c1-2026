@@ -1,5 +1,8 @@
+
 from django.apps import AppConfig
 
 
-class InfraestructuraConfig(AppConfig):
-    name = 'infraestructura'
+class InfrastructureConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "infrastructure"
+    verbose_name = "Infraestructura"
