@@ -1,4 +1,5 @@
 
+from django.conf import settings
 from django.db import models
 
 
@@ -7,6 +8,17 @@ class Person(models.Model):
         primary_key=True,
         db_column="id_persona",
         verbose_name="ID de persona",
+    )
+
+    # Vinculación de la persona con su cuenta de autenticación.
+    # Una cuenta de usuario corresponde como máximo a una persona.
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="person_profile",
+        verbose_name="Cuenta de usuario",
     )
 
     rut = models.CharField(
