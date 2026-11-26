@@ -1,5 +1,6 @@
+
 from rest_framework import viewsets
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Person
 from .serializers import PersonSerializer
@@ -7,7 +8,7 @@ from .serializers import PersonSerializer
 
 class PersonViewSet(viewsets.ModelViewSet):
     """
-    CRUD de personas.
+    CRUD de personas protegido mediante JWT.
 
     GET     /api/personas/
     POST    /api/personas/
@@ -19,4 +20,4 @@ class PersonViewSet(viewsets.ModelViewSet):
 
     queryset = Person.objects.all()
     serializer_class = PersonSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
