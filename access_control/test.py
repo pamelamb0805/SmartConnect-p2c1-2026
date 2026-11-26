@@ -17,7 +17,7 @@ from .models import (
     Credential,
     AccessRecord,
 )
-
+from .permissions import user_can_access_dwelling
 
 class AccessControlTests(TestCase):
 
