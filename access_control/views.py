@@ -223,112 +223,22 @@ class CredentialViewSet(viewsets.ModelViewSet):
 
 
 class AccessRecordViewSet(viewsets.ModelViewSet):
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        user = self.request.user
+    queryset = AccessRecord.objects.select_related(
+        "access_point",
+        "access_point__terrain",
+        "credential",
+        "credential__person",
+    ).all()
 
-        # Restringir los registros visibles según los permisos.
-        if self.action == "list" and not user.is_superuser:
-            person = get_person_for_user(user)
-
-            if person is None:
-                return queryset.none()
-
-            own_records = Q(
-                credential__person_id=person.pk
-            )
-
-            terrain_ids = (
-                get_active_assignments(user)
-                .filter(role__scope=Role.Scope.TERRAIN)
-                .values_list("terrain_id", flat=True)
-            )
-
-            authorized_terrain_records = Q(
-                access_point__terrain_id__in=terrain_ids
-            )
-
-            queryset = queryset.filter(
-                own_records | authorized_terrain_records
-            ).distinct()
-
-        if self.action == "list":
-            filter_serializer = AccessRecordFilterSerializer(
-                data=self.request.query_params
-            )
-            filter_serializer.is_valid(raise_exception=True)
-            filters = filter_serializer.validated_data
-
-            if "person" in filters:
-                queryset = queryset.filter(
-                    credential__person_id=filters["person"]
-                )
-
-            if "terrain" in filters:
-                queryset = queryset.filter(
-                    access_point__terrain_id=filters["terrain"]
-                )
-
-            if "access_point" in filters:
-                queryset = queryset.filter(
-                    access_point_id=filters["access_point"]
-                )
-
-            if "result" in filters:
-                queryset = queryset.filter(
-                    result=filters["result"]
-                )
-
-            if "medium" in filters:
-                queryset = queryset.filter(
-                    medium=filters["medium"]
-                )
-
-            # Inicio del día en la zona horaria de Santiago.
-            if "date_from" in filters:
-                fecha_inicio = timezone.make_aware(
-                    datetime.combine(
-                        filters["date_from"],
-                        time.min,
-                    ),
-                    timezone.get_current_timezone(),
-                )
-
-                queryset = queryset.filter(
-                    date_time__gte=fecha_inicio
-                )
-
-            # Se utiliza el inicio del día siguiente como límite
-            # exclusivo para incluir todas las horas de date_to.
-            if "date_to" in filters:
-                fecha_fin = timezone.make_aware(
-                    datetime.combine(
-                        filters["date_to"] + timedelta(days=1),
-                        time.min,
-                    ),
-                    timezone.get_current_timezone(),
-                )
-
-                queryset = queryset.filter(
-                    date_time__lt=fecha_fin
-                )
-
-        return queryset
     serializer_class = AccessRecordSerializer
     permission_classes = [IsAuthenticated, CanAccessRecord]
     pagination_class = AccessRecordPagination
-
-    # Se mantiene GET y POST. No se permiten PUT, PATCH ni DELETE.
     http_method_names = ["get", "post", "head", "options"]
-
 
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
 
-        # El listado solo muestra registros autorizados.
-        # En detalle se conserva el queryset completo para
-        # que CanAccessRecord pueda responder HTTP 403.
         if self.action == "list" and not user.is_superuser:
             person = get_person_for_user(user)
 
@@ -345,12 +255,12 @@ class AccessRecordViewSet(viewsets.ModelViewSet):
                 .values_list("terrain_id", flat=True)
             )
 
-            authorized_terrain_records = Q(
+            authorized_records = Q(
                 access_point__terrain_id__in=terrain_ids
             )
 
             queryset = queryset.filter(
-                own_records | authorized_terrain_records
+                own_records | authorized_records
             ).distinct()
 
         if self.action == "list":
@@ -382,21 +292,29 @@ class AccessRecordViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(medium=filters["medium"])
 
             if "date_from" in filters:
+                fecha_inicio = timezone.make_aware(
+                    datetime.combine(filters["date_from"], time.min),
+                    timezone.get_current_timezone(),
+                )
                 queryset = queryset.filter(
-                    date_time__date__gte=filters["date_from"]
+                    date_time__gte=fecha_inicio
                 )
 
             if "date_to" in filters:
+                fecha_fin = timezone.make_aware(
+                    datetime.combine(
+                        filters["date_to"] + timedelta(days=1),
+                        time.min,
+                    ),
+                    timezone.get_current_timezone(),
+                )
                 queryset = queryset.filter(
-                    date_time__date__lte=filters["date_to"]
+                    date_time__lt=fecha_fin
                 )
 
         return queryset
 
     def perform_create(self, serializer):
-        # La creación manual de registros queda reservada
-        # al superusuario. Los intentos físicos se registran
-        # mediante CheckAccessView.
         require_superuser(self.request.user)
 
         credential = serializer.validated_data.get("credential")
@@ -409,7 +327,6 @@ class AccessRecordViewSet(viewsets.ModelViewSet):
             uid_received = credential.uid_rfid
 
         serializer.save(uid_received=uid_received)
-
 
 class CheckAccessView(APIView):
     """
