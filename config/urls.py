@@ -2,10 +2,12 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+
 
 def api_home(request):
     return JsonResponse({
@@ -20,6 +22,8 @@ def api_home(request):
             "asignaciones_roles": "/api/access-control/person-roles/",
             "credenciales": "/api/access-control/credentials/",
             "registros_acceso": "/api/access-control/access-records/",
+            "token": "/api/token/",
+            "renovar_token": "/api/token/refresh/",
             "administracion": "/admin/",
         },
     })
@@ -44,13 +48,15 @@ urlpatterns = [
         include("access_control.urls"),
     ),
 
-    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-
-    from rest_framework_simplejwt.views import (
-    TokenObtainPairView, TokenRefreshView,
-    )
-    # Agregar a urlpatterns y conservar las rutas del router
-    path("api/token/", TokenObtainPairView.as_view()),
-    path("api/token/refresh/", TokenRefreshView.as_view()),
+    # Autenticación JWT
+    path(
+        "api/token/",
+        TokenObtainPairView.as_view(),
+        name="token_obtain_pair",
+    ),
+    path(
+        "api/token/refresh/",
+        TokenRefreshView.as_view(),
+        name="token_refresh",
+    ),
 ]
