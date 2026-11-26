@@ -1,6 +1,7 @@
 
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +10,7 @@ from rest_framework.test import APIClient
 
 from people.models import Person
 from infrastructure.models import Terrain, AccessPoint
+
 from .models import (
     Role,
     PersonRole,
@@ -21,6 +23,16 @@ class AccessControlTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+
+        User = get_user_model()
+
+        self.user = User.objects.create_superuser(
+            username="admin_access_test",
+            email="admin.access@test.cl",
+            password="TestPassword123!",
+        )
+
+        self.client.force_authenticate(user=self.user)
 
         self.person = Person.objects.create(
             rut="11111111-1",
@@ -193,6 +205,16 @@ class AccessRecordFilterTests(TestCase):
     def setUp(self):
         self.client = APIClient()
 
+        User = get_user_model()
+
+        self.user = User.objects.create_superuser(
+            username="admin_historial_test",
+            email="admin.historial@test.cl",
+            password="TestPassword123!",
+        )
+
+        self.client.force_authenticate(user=self.user)
+
         self.person = Person.objects.create(
             rut="22222222-2",
             first_name="Historial",
@@ -264,9 +286,9 @@ class AccessRecordFilterTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(
-            response.data[0]["id_access_record"],
+            response.data["results"][0]["id_access_record"],
             self.record.pk,
         )
 
@@ -277,7 +299,7 @@ class AccessRecordFilterTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
 
     def test_filtrar_por_punto_de_acceso(self):
         response = self.client.get(
@@ -286,7 +308,7 @@ class AccessRecordFilterTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
 
     def test_filtrar_por_resultado(self):
         response = self.client.get(
@@ -295,9 +317,9 @@ class AccessRecordFilterTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(
-            response.data[0]["result"],
+            response.data["results"][0]["result"],
             AccessRecord.Result.DENIED,
         )
 
@@ -308,9 +330,9 @@ class AccessRecordFilterTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(
-            response.data[0]["medium"],
+            response.data["results"][0]["medium"],
             AccessRecord.Medium.APP,
         )
 
@@ -326,7 +348,7 @@ class AccessRecordFilterTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data["results"]), 2)
 
     def test_rango_de_fechas_invertido_responde_400(self):
         today = timezone.localdate()
@@ -367,8 +389,8 @@ class AccessRecordFilterTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(
-            response.data[0]["id_access_record"],
+            response.data["results"][0]["id_access_record"],
             self.record.pk,
         )
