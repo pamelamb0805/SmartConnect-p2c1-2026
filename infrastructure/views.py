@@ -1,5 +1,5 @@
 from rest_framework import viewsets
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Terrain, Dwelling, AccessPoint
 from .serializers import (
@@ -40,8 +40,7 @@ class DwellingViewSet(viewsets.ModelViewSet):
 
     queryset = Dwelling.objects.select_related("terrain").all()
     serializer_class = DwellingSerializer
-    permission_classes = [AllowAny]
-
+    permission_classes = [IsAuthenticated]
 
 class AccessPointViewSet(viewsets.ModelViewSet):
     """
