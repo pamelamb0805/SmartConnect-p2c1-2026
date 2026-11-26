@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from people.models import Person
-from infrastructure.models import Terrain, AccessPoint
+from infrastructure.models import Terrain, Dwelling, AccessPoint
 
 from .models import (
     Role,
@@ -393,4 +393,245 @@ class AccessRecordFilterTests(TestCase):
         self.assertEqual(
             response.data["results"][0]["id_access_record"],
             self.record.pk,
+        )
+
+
+class AuthorizationSecurityTests(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+
+        self.client = APIClient()
+
+        self.user = User.objects.create_user(
+            username="usuario_seguridad",
+            email="seguridad@test.cl",
+            password="TestPassword123!",
+        )
+
+        self.person = Person.objects.create(
+            user=self.user,
+            rut="44444444-4",
+            first_name="Usuario",
+            last_name="Seguridad",
+        )
+
+        self.terrain = Terrain.objects.create(
+            name="Terreno seguridad",
+            address="Dirección seguridad",
+            status="ACTIVO",
+        )
+
+        self.dwelling_one = Dwelling.objects.create(
+            identifier_number="CASA-01",
+            dwelling_type="CASA",
+            address="Casa 1",
+            terrain=self.terrain,
+            status="ACTIVO",
+        )
+
+        self.dwelling_two = Dwelling.objects.create(
+            identifier_number="CASA-02",
+            dwelling_type="CASA",
+            address="Casa 2",
+            terrain=self.terrain,
+            status="ACTIVO",
+        )
+
+        self.role = Role.objects.create(
+            name="Rol vivienda seguridad",
+            description="Acceso a una vivienda específica",
+            scope=Role.Scope.DWELLING,
+            status=Role.Status.ACTIVE,
+        )
+
+        self.assignment = PersonRole.objects.create(
+            person=self.person,
+            role=self.role,
+            start_date=timezone.localdate() - timedelta(days=1),
+            end_date=None,
+            status=PersonRole.Status.ACTIVE,
+            dwelling=self.dwelling_one,
+        )
+
+    def test_sin_token_responde_401(self):
+        response = self.client.get(reverse("terreno-list"))
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_usuario_sin_permiso_no_puede_crear_terreno(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            reverse("terreno-list"),
+            {
+                "name": "Terreno no autorizado",
+                "address": "Dirección no autorizada",
+                "status": "ACTIVO",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(
+            Terrain.objects.filter(
+                name="Terreno no autorizado"
+            ).exists()
+        )
+
+    def test_usuario_no_accede_a_otra_vivienda_del_mismo_terreno(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(
+            reverse(
+                "vivienda-detail",
+                kwargs={"pk": self.dwelling_two.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_listado_solo_muestra_vivienda_autorizada(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(reverse("vivienda-list"))
+
+        self.assertEqual(response.status_code, 200)
+
+        ids = [
+            item["id_dwelling"]
+            for item in response.data
+        ]
+
+        self.assertIn(self.dwelling_one.pk, ids)
+        self.assertNotIn(self.dwelling_two.pk, ids)
+
+    def test_usuario_no_puede_editar_vivienda_ajena(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(
+            reverse(
+                "vivienda-detail",
+                kwargs={"pk": self.dwelling_two.pk},
+            ),
+            {"address": "Dirección modificada"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+        self.dwelling_two.refresh_from_db()
+        self.assertEqual(self.dwelling_two.address, "Casa 2")
+
+    def test_asignacion_vivienda_no_autoriza_otras_viviendas(self):
+        self.client.force_authenticate(user=self.user)
+
+        self.assertTrue(
+            user_can_access_dwelling(
+                self.user,
+                self.dwelling_one.pk,
+            )
+        )
+
+        self.assertFalse(
+            user_can_access_dwelling(
+                self.user,
+                self.dwelling_two.pk,
+            )
+        )
+
+
+class RFIDIntegrityTests(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+
+        self.user = User.objects.create_superuser(
+            username="admin_integridad",
+            email="integridad@test.cl",
+            password="TestPassword123!",
+        )
+
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        self.person = Person.objects.create(
+            rut="55555555-5",
+            first_name="Persona",
+            last_name="Integridad",
+        )
+
+        self.terrain = Terrain.objects.create(
+            name="Terreno integridad",
+            address="Dirección integridad",
+            status="ACTIVO",
+        )
+
+        self.point = AccessPoint.objects.create(
+            name="Acceso integridad",
+            point_type="PORTON",
+            status="ACTIVO",
+            terrain=self.terrain,
+        )
+
+        self.role = Role.objects.create(
+            name="Rol integridad",
+            description="Prueba de integridad",
+            scope=Role.Scope.TERRAIN,
+            status=Role.Status.ACTIVE,
+        )
+
+        self.credential = Credential.objects.create(
+            uid_rfid="RFID-INTEGRIDAD",
+            status=Credential.Status.BLOCKED,
+            person=self.person,
+        )
+
+        self.assignment = PersonRole.objects.create(
+            person=self.person,
+            role=self.role,
+            start_date=timezone.localdate() - timedelta(days=1),
+            end_date=None,
+            status=PersonRole.Status.ACTIVE,
+            terrain=self.terrain,
+        )
+
+    def test_rechazo_rfid_no_modifica_estados_de_la_base_de_datos(self):
+        credential_status = self.credential.status
+        assignment_status = self.assignment.status
+        role_status = self.role.status
+        terrain_status = self.terrain.status
+
+        response = self.client.post(
+            reverse("check-access"),
+            {
+                "uid_rfid": self.credential.uid_rfid,
+                "access_point_id": self.point.pk,
+                "medium": "RFID",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["autorizado"])
+
+        self.credential.refresh_from_db()
+        self.assignment.refresh_from_db()
+        self.role.refresh_from_db()
+        self.terrain.refresh_from_db()
+
+        self.assertEqual(self.credential.status, credential_status)
+        self.assertEqual(self.assignment.status, assignment_status)
+        self.assertEqual(self.role.status, role_status)
+        self.assertEqual(self.terrain.status, terrain_status)
+
+        record = AccessRecord.objects.get()
+
+        self.assertEqual(
+            record.result,
+            AccessRecord.Result.DENIED,
+        )
+        self.assertEqual(
+            record.uid_received,
+            self.credential.uid_rfid,
         )
