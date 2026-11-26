@@ -1,3 +1,4 @@
+
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
@@ -23,7 +24,7 @@ class TerrainViewSet(viewsets.ModelViewSet):
 
     queryset = Terrain.objects.all()
     serializer_class = TerrainSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
 
 class DwellingViewSet(viewsets.ModelViewSet):
@@ -42,6 +43,7 @@ class DwellingViewSet(viewsets.ModelViewSet):
     serializer_class = DwellingSerializer
     permission_classes = [IsAuthenticated]
 
+
 class AccessPointViewSet(viewsets.ModelViewSet):
     """
     CRUD de puntos de acceso.
@@ -56,4 +58,4 @@ class AccessPointViewSet(viewsets.ModelViewSet):
 
     queryset = AccessPoint.objects.select_related("terrain").all()
     serializer_class = AccessPointSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
